@@ -245,6 +245,7 @@ open class SwiftyCamViewController: UIViewController {
 	/// Last changed orientation
 
 	fileprivate var deviceOrientation            : UIDeviceOrientation?
+  fileprivate var audioInput                   : AVCaptureDeviceInput?
 
 	/// Disable view autorotation for forced portrait recorindg
 
@@ -293,7 +294,29 @@ open class SwiftyCamViewController: UIViewController {
 		sessionQueue.async { [unowned self] in
 			self.configureSession()
 		}
+    NotificationCenter.default.addObserver(self, selector: #selector(sessionWasInterrupted(notification:)), name: .AVCaptureSessionWasInterrupted, object: session)
+    NotificationCenter.default.addObserver(self, selector: #selector(sessionInterruptionEnded(notification:)), name: .AVCaptureSessionInterruptionEnded, object: session)
 	}
+
+  func sessionWasInterrupted(notification: Notification) {
+    print("------------sessionWasInterrupted")
+    if #available(iOS 9.0, *) {
+      if let userInfoValue = notification.userInfo?[AVCaptureSessionInterruptionReasonKey] as AnyObject?,
+        let reasonIntegerValue = userInfoValue.integerValue,
+        let reason = AVCaptureSession.InterruptionReason(rawValue: reasonIntegerValue) {
+        if reason == .audioDeviceInUseByAnotherClient {
+          if let audioInput = audioInput {
+            session.removeInput(audioInput)
+            self.audioInput = nil
+          }
+        }
+      }
+    }
+  }
+
+  func sessionInterruptionEnded(notification: Notification) {
+    print("----------sessionInterruptionEnded")
+  }
 
     // MARK: ViewDidLayoutSubviews
     
@@ -350,6 +373,10 @@ open class SwiftyCamViewController: UIViewController {
 
 	override open func viewDidAppear(_ animated: Bool) {
 		super.viewDidAppear(animated)
+
+    if audioInput == nil {
+      addAudioInput()
+    }
 
 		// Subscribe to device rotation notifications
 
@@ -709,10 +736,10 @@ open class SwiftyCamViewController: UIViewController {
         }
 		do {
 			let audioDevice = AVCaptureDevice.defaultDevice(withMediaType: AVMediaTypeAudio)
-			let audioDeviceInput = try AVCaptureDeviceInput(device: audioDevice)
+			audioInput = try AVCaptureDeviceInput(device: audioDevice)
 
-			if session.canAddInput(audioDeviceInput) {
-				session.addInput(audioDeviceInput)
+			if session.canAddInput(audioInput) {
+				session.addInput(audioInput)
 			}
 			else {
 				print("[SwiftyCam]: Could not add audio device input to the session")
