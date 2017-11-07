@@ -497,6 +497,16 @@ open class SwiftyCamViewController: UIViewController {
 			return
 		}
 
+    if AVAudioSession.sharedInstance().isOtherAudioPlaying {
+      print("isOtherAudioPlaying")
+      if let audioInput = audioInput {
+        session.removeInput(audioInput)
+        self.audioInput = nil
+      }
+    } else if audioInput == nil {
+      addAudioInput()
+    }
+
 		if currentCamera == .rear && flashEnabled == true {
 			enableFlash()
 		}
